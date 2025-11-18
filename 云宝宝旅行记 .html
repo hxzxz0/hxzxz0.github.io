@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>云宝宝旅行记 - 水循环交互网页</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: "微软雅黑", sans-serif;
+        }
+        body {
+            background-color: #e6f7ff;
+            padding: 20px;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: #fff;
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #1890ff;
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        /* 演示区样式 */
+        .demo-area {
+            height: 450px;
+            border: 2px dashed #1890ff;
+            border-radius: 8px;
+            position: relative;
+            background: linear-gradient(to bottom, #b3e0ff, #fff 85%);
+            overflow: hidden;
+            margin-bottom: 20px;
+        }
+        /* 池塘 */
+        .pond {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 250px;
+            height: 90px;
+            background: #1890ff;
+            border-radius: 50%;
+            opacity: 0.8;
+            box-shadow: inset 0 5px 10px rgba(0,0,0,0.2);
+        }
+        /* 多水滴（蒸发效果更真实） */
+        .drop {
+            position: absolute;
+            width: 12px;
+            height: 18px;
+            background: #1890ff;
+            border-radius: 50% 50% 50% 50% / 60% 60% 40% 40%;
+            left: calc(50% - 60px + var(--random-left));
+            bottom: 110px;
+            cursor: pointer;
+            opacity: 0.9;
+            animation: none;
+        }
+        /* 蒸发动画：每个水滴不同速度上升 */
+        @keyframes evaporate {
+            0% { bottom: 110px; opacity: 0.9; }
+            100% { bottom: 380px; opacity: 0.2; transform: scale(0.8); }
+        }
+        /* 云：更生动的形态+渐变 */
+        .cloud {
+            position: absolute;
+            top: 80px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 200px;
+            height: 80px;
+            background: linear-gradient(to bottom, #fff, #f0f9ff);
+            border-radius: 50px;
+            display: none;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+            /* 云的“棉花感” */
+            &::before, &::after {
+                content: '';
+                position: absolute;
+                background: inherit;
+                border-radius: 50%;
+            }
+            &::before {
+                width: 80px;
+                height: 80px;
+                top: -30px;
+                left: 30px;
+            }
+            &::after {
+                width: 100px;
+                height: 100px;
+                top: -40px;
+                right: 20px;
+            }
+        }
+        /* 雨：密集效果+不同下落速度 */
+        .rain {
+            position: absolute;
+            top: 160px;
+            left: calc(50% - 80px + var(--rain-left));
+            width: 2px;
+            height: 18px;
+            background: #1890ff;
+            display: none;
+            opacity: 0.8;
+            animation: rain 0.6s linear infinite;
+        }
+        /* 不同雨滴的下落速度差异 */
+        .rain:nth-child(odd) { animation-duration: 0.5s; }
+        .rain:nth-child(even) { animation-duration: 0.7s; }
+        @keyframes rain {
+            0% { top: 160px; opacity: 0.8; }
+            100% { top: 320px; opacity: 0; }
+        }
+        /* 操作区样式 */
+        .control-area {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        button {
+            padding: 10px 20px;
+            background: #1890ff;
+            color: #fff;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 0 8px;
+            transition: all 0.3s ease;
+            box-shadow: 0 2px 5px rgba(24, 144, 255, 0.3);
+        }
+        button:hover {
+            background: #096dd9;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(9, 109, 217, 0.3);
+        }
+        /* 练习区样式 */
+        .practice-area {
+            border-top: 2px solid #1890ff;
+            padding-top: 20px;
+        }
+        .question {
+            margin-bottom: 15px;
+            font-size: 16px;
+        }
+        .options {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            margin-bottom: 10px;
+        }
+        .feedback {
+            color: #52c41a;
+            font-weight: bold;
+            display: none;
+            padding: 8px;
+            background: #f6ffed;
+            border-radius: 4px;
+            margin-top: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>云宝宝旅行记 - 水循环交互实验</h1>
+
+        <!-- 演示区 -->
+        <div class="demo-area" id="demoArea">
+            <div class="pond"></div>
+            <!-- 多水滴容器 -->
+            <div id="dropContainer"></div>
+            <div class="cloud" id="cloud"></div>
+            <!-- 多雨滴容器 -->
+            <div id="rainContainer"></div>
+        </div>
+
+        <!-- 操作区 -->
+        <div class="control-area">
+            <button onclick="startEvaporation()">1. 小水滴蒸发</button>
+            <button onclick="startCondensation()">2. 水蒸气凝结成云</button>
+            <button onclick="startRain()">3. 云变成雨降落</button>
+            <button onclick="reset()">重置旅行</button>
+        </div>
+
+        <!-- 练习区 -->
+        <div class="practice-area">
+            <div class="question">1. 下列哪个现象属于蒸发？</div>
+            <div class="options">
+                <button onclick="checkAnswer('A', '错误，下雨是降水环节~')">A. 下雨</button>
+                <button onclick="checkAnswer('B', '正确！湿衣服变干是水蒸发成了水蒸气~')">B. 湿衣服变干</button>
+            </div>
+            <div class="feedback" id="feedback1"></div>
+        </div>
+    </div>
+
+    <script>
+        // 获取元素
+        const dropContainer = document.getElementById('dropContainer');
+        const cloud = document.getElementById('cloud');
+        const rainContainer = document.getElementById('rainContainer');
+        const feedback1 = document.getElementById('feedback1');
+
+        // 初始化：生成5个小水滴（更真实）
+        function initDrops() {
+            dropContainer.innerHTML = '';
+            for (let i = 0; i < 5; i++) {
+                const drop = document.createElement('div');
+                drop.className = 'drop';
+                // 每个水滴位置随机偏移
+                drop.style.setProperty('--random-left', `${i * 25}px`);
+                dropContainer.appendChild(drop);
+            }
+        }
+
+        // 初始化：生成10个雨滴（密集效果）
+        function initRain() {
+            rainContainer.innerHTML = '';
+            for (let i = 0; i < 10; i++) {
+                const rain = document.createElement('div');
+                rain.className = 'rain';
+                // 雨滴位置随机分布
+                rain.style.setProperty('--rain-left', `${i * 15}px`);
+                rainContainer.appendChild(rain);
+            }
+        }
+
+        // 页面加载时初始化
+        window.onload = () => {
+            initDrops();
+            initRain();
+        };
+
+        // 1. 蒸发：多水滴不同速度上升
+        function startEvaporation() {
+            const drops = document.querySelectorAll('.drop');
+            drops.forEach((drop, index) => {
+                // 每个水滴动画延迟不同，更自然
+                drop.style.animation = `evaporate ${1.2 + index * 0.3}s ease forwards`;
+            });
+        }
+
+        // 2. 凝结：水滴消失，云渐显
+        function startCondensation() {
+            const drops = document.querySelectorAll('.drop');
+            drops.forEach(drop => drop.style.opacity = '0');
+            // 云渐显动画
+            cloud.style.display = 'block';
+            cloud.style.opacity = '0';
+            let opacity = 0;
+            const fadeIn = setInterval(() => {
+                opacity += 0.1;
+                cloud.style.opacity = opacity;
+                if (opacity >= 1) clearInterval(fadeIn);
+            }, 100);
+        }
+
+        // 3. 降水：云消失，雨下落
+        function startRain() {
+            cloud.style.opacity = '0';
+            setTimeout(() => cloud.style.display = 'none', 500);
+            
+            // 雨滴显示
+            const rains = document.querySelectorAll('.rain');
+            rains.forEach((rain, index) => {
+                // 雨滴依次下落
+                setTimeout(() => rain.style.display = 'block', index * 80);
+            });
+
+            // 雨停后水滴回归池塘
+            setTimeout(() => {
+                rains.forEach(rain => rain.style.display = 'none');
+                resetDrops();
+            }, 2500);
+        }
+
+        // 重置水滴状态
+        function resetDrops() {
+            const drops = document.querySelectorAll('.drop');
+            drops.forEach(drop => {
+                drop.style.animation = 'none';
+                drop.style.opacity = '0.9';
+            });
+        }
+
+        // 重置整个流程
+        function reset() {
+            initDrops();
+            initRain();
+            cloud.style.display = 'none';
+            feedback1.style.display = 'none';
+        }
+
+        // 练习区答题反馈（加动画）
+        function checkAnswer(option, msg) {
+            feedback1.innerText = msg;
+            feedback1.style.display = 'block';
+            feedback1.style.opacity = '0';
+            // 反馈渐显
+            let opacity = 0;
+            const fadeIn = setInterval(() => {
+                opacity += 0.1;
+                feedback1.style.opacity = opacity;
+                if (opacity >= 1) clearInterval(fadeIn);
+            }, 50);
+        }
+    </script>
+</body>
+</html>
